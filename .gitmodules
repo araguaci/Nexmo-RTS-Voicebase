@@ -1,0 +1,3 @@
+[submodule "Nexmo-RTS-Voicebase"]
+	path = Nexmo-RTS-Voicebase
+	url = git@github.com:VonageGarage/Nexmo-RTS-Voicebase.git
