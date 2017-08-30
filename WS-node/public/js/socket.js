@@ -54,10 +54,6 @@ socket.on('status', function(status) {
     $('div.status').html("status: " + status);
 
     if (status == "connected") {
-      sentimentChart.reset()
-      keywordChart.reset()
-      wordLengthDistChart.reset()
-      posTagDistChart.reset()
       $('div.transcription').html('');
     }
 

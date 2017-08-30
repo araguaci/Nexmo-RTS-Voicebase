@@ -9,13 +9,13 @@ var dispatcher     = new HttpDispatcher();
 const fs = require('fs');
 const winston = require('winston')
 winston.level = process.env.LOG_LEVEL || 'info'
+var transcriptionInterval = null;
+var isActiveInterval = null;
 
-var AsrClient = require('./lib/asrClient')
-var asrActive = false
-var myAsrClient;
-var engineStartedMs;
+
 var connections = []
 
+var gSpeech = require('./lib/gSpeech.js')
 
 //Create a server
 var server = http.createServer(function(req, res) {
@@ -89,8 +89,11 @@ wsServer.on('connect', function(connection) {
               winston.log('info', "json", json['app']);
 
               if (json['app'] == "audiosocket") {
-                VBConnect();
-                winston.log('info', 'connecting to VB');
+                io.sockets.emit('status',  "connected");
+                gSpeech.streamingMicRecognize()
+                transcriptionInterval = setInterval(updateTranscription,5000)
+                isActiveInterval =  setInterval(isActive,5000)
+                winston.log('info', 'connecting to GSpeech');
               }
               
             } catch (e) {
@@ -101,36 +104,31 @@ wsServer.on('connect', function(connection) {
         else if (message.type === 'binary') {
             // Reflect the message back
             // connection.sendBytes(message.binaryData);
-            if (myAsrClient != null && asrActive) {  
-              winston.log('debug', "sendingDate ",message.binaryData);
-              myAsrClient.sendData(message.binaryData)
-            }
+            gSpeech.sendData(message.binaryData);
         }
     });
+  
 
     connection.on('close', function(reasonCode, description) {
         winston.log('info', (new Date()) + ' Peer ' + connection.remoteAddress + ' disconnected.');
         wsServer.closeAllConnections();
+        clearInterval(transcriptionInterval);
+        clearInterval(isActiveInterval);
 
     });
 });
 
 wsServer.on('close', function(connection) {
   winston.log('info', 'socket closed');
-  if (asrActive) {
-      io.sockets.emit('status',  "disconnected");
-      winston.log('info', 'trying to close ASR client');
-      myAsrClient.close();
-      myAsrClient = null;
-      asrActive = false;
-  }
-  else {
-    winston.log('info', 'asr not active, cant close');
-  }
+    io.sockets.emit('status',  "disconnected");
+    clearInterval(transcriptionInterval);
+    clearInterval(isActiveInterval);
 })
 
 wsServer.on('error', function(error) {
   winston.log('error', 'Websocket error', error);
+  clearInterval(transcriptionInterval);
+  clearInterval(isActiveInterval);
 })
 
 var port = process.env.PORT || 8000
@@ -138,60 +136,23 @@ server.listen(port, function(){
     winston.log('info', "Server listening on :%s", port);
 });
 
-function VBConnect() {
+function updateTranscription() {
+    console.log("updateTranscription");
+    var text = gSpeech.getTranscription()
+    if (text != null) {
+        io.sockets.emit('transcript', text);
+    }
+}
 
-    winston.log('debug', 'load AsrClient');
-    myAsrClient = new AsrClient()
-    var url = process.env.ASR_URL;
-        client_key = process.env.ASR_CLIENT_KEY;
-        client_secret = process.env.ASR_CLIENT_SECRET;
-    myAsrClient.setup(url, client_key, client_secret, (err) => {
-      if (err) {
-        return console.error('AsrClient error:', err)
-      }
-    var controlMessage = {}
-      controlMessage.language = 'en-US' // default starting value 
-      controlMessage.targetSampleRate = '8' // default starting value 
-      controlMessage.sampleRate = '16000'
-      controlMessage.windowSize = 10
-      myAsrClient.reserveAsr(controlMessage)
-      winston.log('debug', "sending control message", controlMessage);
-
-      myAsrClient.subscribeEvent('engineState', (msg) => {
-        winston.log('info', 'Engine State Event', msg)
-        if (msg === 'ready') {
-          asrActive = true
-          engineStartedMs = Date.now()
-          winston.log('info', 'Setting asrActive to true: ', asrActive, ' this.asrActive ', this.asrActive)
-          io.sockets.emit('status',  "connected");
-        }
-      })
-
-      myAsrClient.subscribeEvent('transcript', (msg) => {
-        winston.log('debug', 'transcript', msg);
-        io.sockets.emit('transcript', msg);
-      })
-
-      myAsrClient.subscribeEvent('sentiment', (msg) => {
-        winston.log('debug', 'sentiment', msg);
-        io.sockets.emit('sentiment', msg);
-
-      })
-
-      myAsrClient.subscribeEvent('nlp', (msg) => {
-          winston.log('debug', 'nlp', msg);
-          io.sockets.emit('nlp', msg);
-      })
-
-      myAsrClient.subscribeEvent('keywords', (msg) => {
-          winston.log('info', 'keywords', msg);
-          io.sockets.emit('keywords', msg);
-      })
-
-
-       myAsrClient.subscribeEvent('latency', (msg) => {
-          winston.log('info', 'latency', msg);
-          io.sockets.emit('latency', msg);
-      })
-    })
+function isActive() {
+    var active = gSpeech.isConnectionActive();
+    if (!active) {
+        gSpeech.recognizeStream = null;
+        clearInterval(transcriptionInterval);
+        clearInterval(isActiveInterval);
+        
+        transcriptionInterval = setInterval(updateTranscription,5000)
+        isActiveInterval =  setInterval(isActive,5000)
+        gSpeech.streamingMicRecognize();
+    }
 }
