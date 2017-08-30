@@ -28,7 +28,7 @@ var nexmo = new Nexmo({
 winston.level = process.env.LOG_LEVEL
 var calls = Promise.promisifyAll(nexmo.calls);
 
-app.set('port', process.env.PORT || 3001)
+app.set('port', process.env.PORT || 3000)
 app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
@@ -243,8 +243,8 @@ process.on('unhandledRejection', (reason) => {
 
 ;
 
-app.listen(process.env.PORT || 3001, function () {
-    winston.log('info', 'Nexmo Phone app listening on port ' + (process.env.PORT || 3001))
+app.listen(process.env.PORT || 3000, function () {
+    winston.log('info', 'Nexmo Phone app listening on port ' + (process.env.PORT || 3000))
 })
 
 
