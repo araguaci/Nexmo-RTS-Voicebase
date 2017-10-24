@@ -5,8 +5,10 @@ const url = require('url')
 var socket;
 
 function getBearerToken (asrUrl, clientKey, clientSecret, callback) {
+  console.log('getBearerToken using', asrUrl);
+
   request({
-    url: asrUrl+'/api/oauth2/token',
+    url: url.resolve(asrUrl, '/oauth2/token'),
     method: 'POST',
     json: true,
     headers: { 'content-type': 'application/json' },
@@ -18,9 +20,12 @@ function getBearerToken (asrUrl, clientKey, clientSecret, callback) {
     body: { 'grant_type': 'client_credentials' }
   }, (err, res, body) => {
     if (err) {
+      console.log('getBearerToken Err',err )
       return callback(new Error('Authentication to API error:' + err))
     }
     if (res.statusCode !== 200) {
+      console.log('getBearerToken Err',err )
+      console.log('getBearerToken body ', body)
       return callback(new Error('Authentication to API got error code: ' +
         res.statusCode))
     }
