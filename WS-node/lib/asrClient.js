@@ -82,20 +82,20 @@ function AsrClient () {
       })
 
       socket.on('sentiment estimate', (msg) => {
-        //console.log('sentiment: ', msg)
-        let x = JSON.parse(msg)
+        let x = JSON.parse(msg)[0]
+        console.log('sentiment: ', x)
         self.emit('sentiment', x)
       })
 
       socket.on('basic keywords event', (msg) => {
-        //console.log('kw: ', msg)
         let x = JSON.parse(msg)
+        console.log('basic keywords event: ', x)
         self.emit('keywords', x)
       })
 
       socket.on('nlp event', (msg) => {
-        //console.log('nlp: ', msg)
         let x = JSON.parse(msg)
+        console.log('nlp: ', x)
         self.emit('nlp', x)
       })
       ''
@@ -131,12 +131,12 @@ function AsrClient () {
             var object = new Object()
             object.item = item.p
             object.time =   (tsinceEngineStarted -item.s)/1000.0
-            console.log("item", item);
+            // console.log("item", item);
 
            
 
            
-            
+            console.log("latency", object);
             self.emit('latency',object)
                                 
             self.transcript.push(item)
@@ -148,7 +148,7 @@ function AsrClient () {
           var text = ''
           self.transcript.forEach((item, index, array) => {
             text = text + ' ' + item.w
-            console.log("item.w " + item.w); 
+            // console.log("item.w " + item.w); 
              if (item.w == "action" || item.w == "actions" ) {
                 newIndex = index
             }
