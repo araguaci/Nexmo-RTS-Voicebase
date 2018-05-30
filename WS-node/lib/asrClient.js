@@ -2,11 +2,9 @@
 const io = require('socket.io-client')
 const request = require('request')
 const url = require('url')
-var socket;
+const uuidv1 = require('uuid/v1');
 
 function getBearerToken (asrUrl, clientKey, clientSecret, callback) {
-  console.log('getBearerToken using', asrUrl);
-
   request({
     url: url.resolve(asrUrl, '/oauth2/token'),
     method: 'POST',
@@ -20,12 +18,9 @@ function getBearerToken (asrUrl, clientKey, clientSecret, callback) {
     body: { 'grant_type': 'client_credentials' }
   }, (err, res, body) => {
     if (err) {
-      console.log('getBearerToken Err',err )
       return callback(new Error('Authentication to API error:' + err))
     }
     if (res.statusCode !== 200) {
-      console.log('getBearerToken Err',err )
-      console.log('getBearerToken body ', body)
       return callback(new Error('Authentication to API got error code: ' +
         res.statusCode))
     }
@@ -41,12 +36,11 @@ function AsrClient () {
   process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0'
   var self = this
 
-  this.defaultControlMessage = { language: 'en-US', sampleRate: '16' }
+  this.defaultControlMessage = { language: 'en-US', sampleRate: '16000' }
   this.transcript = []
   this.text = ''
   this.events = []
   this.socket = null
-  this.sendAction = false
 
   self.setup = function (asrUrl, clientKey, clientSecret, callback) {
     getBearerToken(asrUrl, clientKey, clientSecret, (err, bearerToken) => {
@@ -54,63 +48,73 @@ function AsrClient () {
         return callback(err)
       }
 
-      socket = io.connect(asrUrl, {
+      self.socket = io.connect(asrUrl, {
         secure: true,
+        transports: [ 'websocket' ],
         extraHeaders: {
           Authorization: 'Bearer ' + bearerToken
         }
       })
-      //console.log('new socket ', socket)
 
-      socket.on('connect_error', (error) => {
+      self.socket.on('connect_error', (error) => {
         console.log('websocket connect error ', error.description, ' (',
           error.type, ') to ', asrUrl)
         console.log(error.message)
       })
 
-      socket.on('disconnect', () => {
+      self.socket.on('disconnect', () => {
         console.log('disconnected')
-        // self.sendEndOfStream()
+        self.endOfAudio()
       })
 
-      socket.on('engine state', (msg) => {
+      self.socket.on('engine state', (msg) => {
         console.log('Engine state message: ', msg)
-        if (msg === "ready") {
-          engineStartedMs = Date.now()
-       }
         self.emit('engineState', msg)   // ready means start streaming
       })
 
-      socket.on('sentiment estimate', (msg) => {
-        let x = JSON.parse(msg)[0]
-        console.log('sentiment: ', x)
+      self.socket.on('sentiment estimate', (msg) => {
+        let x = JSON.parse(msg)
+        console.log("sentiment", x)
         self.emit('sentiment', x)
       })
 
-      socket.on('basic keywords event', (msg) => {
+      self.socket.on('basic keywords event', (msg) => {
         let x = JSON.parse(msg)
-        console.log('basic keywords event: ', x)
         self.emit('keywords', x)
       })
 
-      socket.on('nlp event', (msg) => {
+      self.socket.on('spot keywords event', (msg) => {
         let x = JSON.parse(msg)
-        console.log('nlp: ', x)
+        self.emit('keywordSpotter', x)
+      })
+
+      self.socket.on('nlp event', (msg) => {
+        let x = JSON.parse(msg)
         self.emit('nlp', x)
       })
-      ''
 
-      socket.on('transcript segment', (msg) => {
-        var messageArrivedMs = Date.now()
-        var tsinceEngineStarted = messageArrivedMs - engineStartedMs
+      self.socket.on('churnPredictor event', (msg) => {
+        let x = JSON.parse(msg)
+        self.emit('churnPredictor', x)
+      })
+
+      self.socket.on('salesPredictor event', (msg) => {
+        let x = JSON.parse(msg)
+        self.emit('salesPredictor', x)
+      })
+
+      self.socket.on('transcript segment', (msg) => {
         let x
         try {
           x = JSON.parse(msg)
         } catch (err) {
-          //console.log('json parse err ', err)
-          //console.log(' and msg is:', msg, ':')
+          console.log('json parse err ', err)
+          console.log(' and msg is:', msg, ':')
           x = { words: [] }
         }
+
+        
+        self.emit('transcript-segment', x)
 
         // collect the transcript fragments into one long transcript array, removing old words as we go
         let tlen = self.transcript.length
@@ -126,63 +130,27 @@ function AsrClient () {
               }
             }
           }
-          
           x.words.forEach((item, index, array) => {
-            var object = new Object()
-            object.item = item.p
-            object.time =   (tsinceEngineStarted -item.s)/1000.0
-            // console.log("item", item);
-
-           
-
-           
-            console.log("latency", object);
-            self.emit('latency',object)
-                                
             self.transcript.push(item)
           })
 
-          var actionText = ''
-          var newIndex
           // extract just the text for dsiplay and replace the silence tag with ellipses
           var text = ''
           self.transcript.forEach((item, index, array) => {
             text = text + ' ' + item.w
-            // console.log("item.w " + item.w); 
-             if (item.w == "action" || item.w == "actions" ) {
-                newIndex = index
-            }
-
-            if (index > newIndex) {
-                actionText += item.w + ' '
-            }
-
           })
-          var re = /<\/s>/gi
+          var re = /<\/s> /gi
+          // text = text.replace(re, '... ')
           text = text.replace(re, '<br /><br />')
-
           self.emit('transcript', text)
-          console.log('actionText ',actionText);
-
-          if (actionText != '') {
-              this.sendAction = true
-              console.log('emmit action ', actionText);
-              self.emit('action', actionText)
-          }
-
         } else {
           console.log('Empty transcript event!')
         }
       })
 
-      function WordCount(str) { 
-        return str.split(" ").length;
-      }
-
-
       self.subscribeEvent = function (eventName, fn) {
         self.events[eventName] = self.events[eventName] || []
-        let token = 'uid_' + String(self.uid++)
+        let token = uuidv1()
         let item = { fn, token }
         self.events[eventName].push(item)
         return token
@@ -201,7 +169,7 @@ function AsrClient () {
 
       // used internally only
       self.emit = function (eventName, data) {
-         //console.log('emitting for eventName: ', eventName, ' and data ', data, ' ', self.events[eventName])
+        //console.log('emitting for eventName: ', eventName, ' and data ', data, ' ', self.events[eventName])
         if (self.events[eventName]) {
           self.events[eventName].forEach(item => {
             item.fn(data)
@@ -210,17 +178,18 @@ function AsrClient () {
       }
 
       self.onAudio = function (data) {
-          socket.emit('audio-packet', data)
+        // TODO: Check if asr engineis ready yet
+        self.socket.emit('audio-packet', data)
       }
 
       self.endOfAudio = function () {
         console.log('sending stream end')
-        socket.emit('stream-close', 'goodbye stream')
+        self.socket.emit('stream-close', 'goodbye stream')
       }
 
       self.reserveAsr = function (controlMessage) {
         console.log('sending stream open')
-        socket.emit('stream-open', JSON.stringify(controlMessage))
+        self.socket.emit('stream-open', JSON.stringify(controlMessage))
       }
 
       callback(null)
