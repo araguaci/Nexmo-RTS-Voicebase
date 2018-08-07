@@ -91,9 +91,9 @@ var sentimentChart = (function(){
 
   },
       data: [
-    //   {type: "spline", legendText: "positive",  showInLegend: true, color: "green", lineThickness: 1, markerType: "none", dataPoints: pos },
-    //   {type: "spline", legendText: "negative",  showInLegend: true, color: "red", lineThickness: 1, markerType: "none", dataPoints: neg },
-    //   {type: "spline", legendText: "neutral",  showInLegend: true, color: "gray", lineThickness: 1, markerType: "none", dataPoints: neu },
+      //{type: "spline", legendText: "positive",  showInLegend: true, color: "green", lineThickness: 1, markerType: "none", dataPoints: pos },
+      //{type: "spline", legendText: "negative",  showInLegend: true, color: "red", lineThickness: 1, markerType: "none", dataPoints: neg },
+      //{type: "spline", legendText: "neutral",  showInLegend: true, color: "gray", lineThickness: 1, markerType: "none", dataPoints: neu },
       {type: "spline", legendText: "compound",  showInLegend: true, color: "blue", lineThickness: 3, markerType: "none", dataPoints: compound}
       ]
   }); 
@@ -109,7 +109,6 @@ var sentimentChart = (function(){
   };
 
    function updateChart(sentiment) {
-       sentiment = sentiment[0]
       pos.push({
           //x: sentiment.time,
           y: sentiment.pos
@@ -133,8 +132,6 @@ var sentimentChart = (function(){
           compound.shift();                
              
       }
-    //   console.log("pos", pos)
-    //   console.log("neg", neg)
 
       chart.render();  
 

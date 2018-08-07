@@ -72,14 +72,15 @@ function AsrClient () {
         self.emit('engineState', msg)   // ready means start streaming
       })
 
-      self.socket.on('sentiment estimate', (msg) => {
-        let x = JSON.parse(msg)
-        console.log("sentiment", x)
+      self.socket.on('sentiment event', (msg) => {
+        let x = JSON.parse(msg)[0]
+        console.log('sentiment: ', x)
         self.emit('sentiment', x)
       })
 
       self.socket.on('basic keywords event', (msg) => {
         let x = JSON.parse(msg)
+        console.log('basic keywords event: ', x)
         self.emit('keywords', x)
       })
 
@@ -140,8 +141,7 @@ function AsrClient () {
             text = text + ' ' + item.w
           })
           var re = /<\/s> /gi
-          // text = text.replace(re, '... ')
-          text = text.replace(re, '<br /><br />')
+          text = text.replace(re, '... ')
           self.emit('transcript', text)
         } else {
           console.log('Empty transcript event!')
@@ -194,14 +194,6 @@ function AsrClient () {
 
       callback(null)
     })
-  }
-
-  self.sendData = function(data) {
-    self.onAudio(data);
-  }
-
-  self.close = function() {
-    self.endOfAudio()
   }
 }
 

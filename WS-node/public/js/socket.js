@@ -6,7 +6,7 @@ var strOut;
 socket.on('transcript', function(x) {
   var div = $('div.transcription')
   div.html(x);
-  // console.log("transcript " + x);
+  console.log("transcript " + x);
   if (!scrolling) {
       div.scrollTop(div[0].scrollHeight);
     }
@@ -38,7 +38,6 @@ socket.on('action', function(x) {
 
 })
 socket.on('sentiment', function(x) {
-  // console.log("x", x)
   sentimentChart.update(x)
 })
 
