@@ -101,7 +101,6 @@ wsServer.on('connect', function(connection) {
             // Reflect the message back
             // connection.sendBytes(message.binaryData);
             if (myAsrClient != null && asrActive) {  
-              winston.log('debug', "sendingDate ",message.binaryData);
               myAsrClient.onAudio(message.binaryData)
             }
         }
