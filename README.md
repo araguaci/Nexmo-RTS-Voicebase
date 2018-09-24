@@ -1,6 +1,6 @@
 # Nexmo-RTS-Voicebase
 This is a demo of using a Nexmo Websocket to transcribe audio in real-time using Voicebase. 
-To view a live version of the demo, go to http://nexmo-vb-websocket.i8krn32yv5.us-east-1.elasticbeanstalk.com/ and dial the phone number listed on the page.
+To view a live version of the demo, go to https://nexmo-vb.herokuapp.com/ and dial the phone number listed on the page.
 Then, begin speaking, you will see the transciption of the speech at the bottom of the page.
 On the left, you will see the sentiment of the converstaion. When positive words are spoken('happy','joy', 'exite'..etc), the sentiment line will move higher. When negitive words are spoken, this line will decrease. 
 On the right, shows a graph of keywords spoken in the conversation.
